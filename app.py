@@ -10,10 +10,53 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown("""
+<style>
+.stApp {
+    background-color: #0B0F19;
+    color: #E5E7EB;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #111827;
+}
+
+h1, h2, h3 {
+    color: #F9FAFB;
+}
+
+[data-testid="stMetric"] {
+    background-color: #111827;
+    border: 1px solid #1F2937;
+    padding: 20px;
+    border-radius: 16px;
+}
+
+.stDataFrame {
+    background-color: #111827;
+    border-radius: 12px;
+}
+
+div.stButton > button {
+    background-color: #2563EB;
+    color: white;
+    border-radius: 10px;
+    border: none;
+    padding: 0.6rem 1rem;
+    font-weight: 600;
+}
+
+div.stButton > button:hover {
+    background-color: #1D4ED8;
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
+
 model = joblib.load("fraud_model.pkl")
 
 st.title("💳 AI-Powered Credit Card Fraud Detection System")
-st.caption("Banking transaction risk analysis dashboard")
+st.caption("Enterprise-style banking transaction risk analysis dashboard")
 
 st.sidebar.header("Transaction Input")
 
@@ -69,14 +112,19 @@ def risk_gauge(score):
         title={"text": "Risk Score"},
         gauge={
             "axis": {"range": [0, 100]},
-            "bar": {"color": "red" if score >= 70 else "orange" if score >= 30 else "green"},
+            "bar": {"color": "#EF4444" if score >= 70 else "#F59E0B" if score >= 30 else "#22C55E"},
             "steps": [
-                {"range": [0, 30], "color": "lightgreen"},
-                {"range": [30, 70], "color": "lightyellow"},
-                {"range": [70, 100], "color": "mistyrose"}
+                {"range": [0, 30], "color": "#14532D"},
+                {"range": [30, 70], "color": "#713F12"},
+                {"range": [70, 100], "color": "#7F1D1D"}
             ]
         }
     ))
+
+    fig.update_layout(
+        paper_bgcolor="#0B0F19",
+        font={"color": "#E5E7EB"}
+    )
     return fig
 
 input_data = build_input(amt, hour, customer_age, distance, gender)
@@ -190,6 +238,30 @@ with tab3:
 
     with col4:
         st.metric("Features", "19")
+
+    st.write("### System Architecture")
+
+    st.graphviz_chart("""
+    digraph {
+        rankdir=LR;
+        node [shape=box, style="rounded,filled", color="#2563EB", fillcolor="#111827", fontcolor="#E5E7EB"];
+
+        A [label="Transaction Input"];
+        B [label="Feature Engineering"];
+        C [label="XGBoost Fraud Model"];
+        D [label="Fraud Probability"];
+        E [label="Risk Level"];
+        F [label="Recommended Action"];
+        G [label="Analyst Dashboard"];
+
+        A -> B;
+        B -> C;
+        C -> D;
+        D -> E;
+        E -> F;
+        F -> G;
+    }
+    """)
 
     st.write("### Model Pipeline")
     st.write("""
