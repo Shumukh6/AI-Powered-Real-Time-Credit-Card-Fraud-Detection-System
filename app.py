@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
+import plotly.graph_objects as go
 
 st.set_page_config(
     page_title="AI Fraud Detection",
@@ -29,29 +31,61 @@ category = st.sidebar.selectbox(
 
 gender = st.sidebar.selectbox("Gender", ["F", "M"])
 
-input_data = pd.DataFrame([{
-    "merchant": 0,
-    "category": 0,
-    "amt": amt,
-    "gender": 0 if gender == "F" else 1,
-    "city": 0,
-    "state": 0,
-    "zip": 0,
-    "lat": 0.0,
-    "long": 0.0,
-    "city_pop": 100000,
-    "job": 0,
-    "unix_time": 0,
-    "merch_lat": 0.0,
-    "merch_long": 0.0,
-    "hour": hour,
-    "customer_age": customer_age,
-    "weekday": 0,
-    "is_weekend": 0,
-    "distance": distance
-}])
+def build_input(amt, hour, customer_age, distance, gender):
+    return pd.DataFrame([{
+        "merchant": 0,
+        "category": 0,
+        "amt": amt,
+        "gender": 0 if gender == "F" else 1,
+        "city": 0,
+        "state": 0,
+        "zip": 0,
+        "lat": 0.0,
+        "long": 0.0,
+        "city_pop": 100000,
+        "job": 0,
+        "unix_time": 0,
+        "merch_lat": 0.0,
+        "merch_long": 0.0,
+        "hour": hour,
+        "customer_age": customer_age,
+        "weekday": 0,
+        "is_weekend": 0,
+        "distance": distance
+    }])
 
-tab1, tab2 = st.tabs(["Single Transaction Analysis", "System Overview"])
+def get_risk(prob):
+    if prob >= 0.70:
+        return "HIGH", "Block or Manual Review"
+    elif prob >= 0.30:
+        return "MEDIUM", "Manual Review"
+    else:
+        return "LOW", "Approve"
+
+def risk_gauge(score):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=score,
+        title={"text": "Risk Score"},
+        gauge={
+            "axis": {"range": [0, 100]},
+            "bar": {"color": "red" if score >= 70 else "orange" if score >= 30 else "green"},
+            "steps": [
+                {"range": [0, 30], "color": "lightgreen"},
+                {"range": [30, 70], "color": "lightyellow"},
+                {"range": [70, 100], "color": "mistyrose"}
+            ]
+        }
+    ))
+    return fig
+
+input_data = build_input(amt, hour, customer_age, distance, gender)
+
+tab1, tab2, tab3 = st.tabs([
+    "Single Transaction Analysis",
+    "Live Transaction Feed",
+    "System Overview"
+])
 
 with tab1:
     st.subheader("Transaction Summary")
@@ -60,18 +94,13 @@ with tab1:
     if st.button("Analyze Transaction"):
         prob = model.predict_proba(input_data)[0][1]
         risk_score = int(prob * 100)
+        risk, action = get_risk(prob)
 
-        if prob >= 0.70:
-            risk = "HIGH"
-            action = "Block or Manual Review"
+        if risk == "HIGH":
             st.error("🚨 Suspicious transaction detected")
-        elif prob >= 0.30:
-            risk = "MEDIUM"
-            action = "Manual Review"
+        elif risk == "MEDIUM":
             st.warning("⚠️ Transaction requires manual review")
         else:
-            risk = "LOW"
-            action = "Approve"
             st.success("✅ Transaction appears safe")
 
         col1, col2, col3 = st.columns(3)
@@ -80,26 +109,26 @@ with tab1:
             st.metric("Fraud Probability", f"{prob:.2%}")
 
         with col2:
-            st.metric("Risk Score", f"{risk_score}/100")
+            st.metric("Risk Level", risk)
 
         with col3:
             st.metric("Recommended Action", action)
 
-        st.progress(risk_score / 100)
+        st.plotly_chart(risk_gauge(risk_score), use_container_width=True)
 
-        st.subheader("Analyst Explanation")
+        st.subheader("AI Analyst Explanation")
 
         reasons = []
 
         if amt > 500:
-            reasons.append("High transaction amount increases fraud risk.")
+            reasons.append("High transaction amount strongly increases fraud risk.")
         else:
             reasons.append("Low transaction amount reduces fraud risk.")
 
         if hour >= 22 or hour <= 3:
-            reasons.append("Transaction occurred during late-night hours, which increases risk.")
+            reasons.append("Late-night transaction time increases suspicion.")
         else:
-            reasons.append("Transaction occurred during normal hours, which reduces risk.")
+            reasons.append("Transaction occurred during normal hours.")
 
         if distance > 1:
             reasons.append("Customer and merchant locations appear far apart.")
@@ -107,16 +136,45 @@ with tab1:
             reasons.append("Customer and merchant locations appear close.")
 
         if category in ["shopping_net", "misc_net", "grocery_pos", "gas_transport"]:
-            reasons.append(f"The merchant category ({category}) is historically associated with higher fraud activity.")
+            reasons.append(f"The merchant category ({category}) has higher fraud activity in the dataset.")
 
-        for reason in reasons:
-            st.write(f"- {reason}")
+        for r in reasons:
+            st.write(f"- {r}")
 
         st.subheader("Final Decision")
         st.write(f"Risk Level: **{risk}**")
         st.write(f"Action: **{action}**")
 
 with tab2:
+    st.subheader("Live Transaction Feed Simulation")
+
+    np.random.seed(42)
+    rows = []
+
+    for i in range(15):
+        random_amt = np.random.choice([25, 60, 120, 500, 1200, 3500])
+        random_hour = np.random.randint(0, 24)
+        random_age = np.random.randint(18, 75)
+        random_distance = np.random.uniform(0.1, 2.5)
+
+        tx = build_input(random_amt, random_hour, random_age, random_distance, "F")
+        p = model.predict_proba(tx)[0][1]
+        r, a = get_risk(p)
+
+        rows.append({
+            "Transaction ID": f"TX-{1000+i}",
+            "Amount": random_amt,
+            "Hour": random_hour,
+            "Distance": round(random_distance, 2),
+            "Fraud Probability": f"{p:.2%}",
+            "Risk": r,
+            "Action": a
+        })
+
+    feed_df = pd.DataFrame(rows)
+    st.dataframe(feed_df, use_container_width=True)
+
+with tab3:
     st.subheader("System Overview")
 
     col1, col2, col3, col4 = st.columns(4)
