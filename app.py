@@ -7,25 +7,10 @@ st.set_page_config(
     page_icon="💳",
     layout="wide"
 )
-st.markdown("""
-<style>
-.main {
-    background-color: #0e1117;
-}
-.metric-box {
-    padding: 20px;
-    border-radius: 12px;
-    background: #1c1f26;
-    text-align: center;
-    box-shadow: 0px 0px 8px rgba(255,255,255,0.1);
-}
-</style>
-""", unsafe_allow_html=True)
+
 model = joblib.load("fraud_model.pkl")
 
-st.set_page_config(page_title="AI Fraud Detection", layout="wide")
-
-st.title("AI-Powered Real-Time Credit Card Fraud Detection System")
+st.title("💳 AI-Powered Real-Time Credit Card Fraud Detection System")
 st.write("Banking transaction risk analysis dashboard")
 
 st.sidebar.header("Transaction Input")
@@ -35,15 +20,24 @@ hour = st.sidebar.slider("Transaction Hour", 0, 23, 23)
 customer_age = st.sidebar.slider("Customer Age", 18, 100, 35)
 distance = st.sidebar.number_input("Customer-Merchant Distance", min_value=0.0, value=0.8)
 
-category = st.sidebar.selectbox("Merchant Category", [
-    "grocery_pos", "shopping_net", "misc_net", "shopping_pos",
-    "gas_transport", "misc_pos", "kids_pets", "entertainment",
-    "personal_care", "home"
-])
+category = st.sidebar.selectbox(
+    "Merchant Category",
+    [
+        "grocery_pos",
+        "shopping_net",
+        "misc_net",
+        "shopping_pos",
+        "gas_transport",
+        "misc_pos",
+        "kids_pets",
+        "entertainment",
+        "personal_care",
+        "home"
+    ]
+)
 
 gender = st.sidebar.selectbox("Gender", ["F", "M"])
 
-# Default values for features the model expects
 input_data = pd.DataFrame([{
     "merchant": 0,
     "category": 0,
@@ -75,28 +69,29 @@ if st.button("Analyze Transaction"):
     if prob >= 0.70:
         risk = "HIGH"
         action = "Block or Manual Review"
-        st.error(f"Risk Level: {risk}")
+        st.error("🚨 Suspicious transaction detected")
     elif prob >= 0.30:
         risk = "MEDIUM"
         action = "Manual Review"
-        st.warning(f"Risk Level: {risk}")
+        st.warning("⚠️ Transaction requires manual review")
     else:
         risk = "LOW"
         action = "Approve"
-        st.success(f"Risk Level: {risk}")
+        st.success("✅ Transaction appears safe")
 
-col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-with col1:
-    st.metric("Fraud Probability", f"{prob:.2%}")
+    with col1:
+        st.metric("Fraud Probability", f"{prob:.2%}")
 
-with col2:
-    st.metric("Risk Level", risk_level)
+    with col2:
+        st.metric("Risk Level", risk)
 
-with col3:
-    st.metric("Decision", action)
+    with col3:
+        st.metric("Recommended Action", action)
 
     st.subheader("Analyst Explanation")
+
     reasons = []
 
     if amt > 500:
@@ -114,5 +109,8 @@ with col3:
     else:
         reasons.append("Customer and merchant locations appear close.")
 
-    for r in reasons:
-        st.write(f"- {r}")
+    if category in ["shopping_net", "misc_net", "grocery_pos", "gas_transport"]:
+        reasons.append(f"The selected merchant category ({category}) is commonly associated with higher fraud activity in the dataset.")
+
+    for reason in reasons:
+        st.write(f"- {reason}")
